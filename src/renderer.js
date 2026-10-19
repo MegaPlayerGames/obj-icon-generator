@@ -61,14 +61,26 @@ export async function sampleFiles(){
   return [{path:'sample.obj',blob:new Blob([obj])},{path:'sample.mtl',blob:new Blob([mtl])},{path:'decal.png',blob:texture}];
 }
 
+export function configureLighting(lights,s){
+  const studio=s.studioLighting!==false;
+  const {sun,fill,ambient,sky}=lights;
+  sun.color.set(s.sunColor);fill.color.set(s.secondaryColor);ambient.color.set(s.ambientColor);
+  sun.intensity=studio?s.sunIntensity/20*1.5:s.sunIntensity/6;
+  fill.intensity=studio?s.secondaryIntensity/32*.65:s.secondaryIntensity/12;
+  ambient.intensity=studio?s.ambientIntensity/20*2:s.ambientIntensity/7;
+  sky.color.set(s.ambientColor);sky.groundColor.copy(sky.color).multiplyScalar(.65);sky.intensity=studio?s.ambientIntensity/20*.65:0;
+  sun.position.set(-3,5,4);fill.position.set(4,2,studio?2:-3);
+  if(studio){const axis=new THREE.Vector3(0,1,0);const yaw=THREE.MathUtils.degToRad(s.rotation);sun.position.applyAxisAngle(axis,yaw);fill.position.applyAxisAngle(axis,yaw);}
+  return {toneMapping:studio?THREE.LinearToneMapping:THREE.ACESFilmicToneMapping,exposure:s.exposure};
+}
+
 export class IconRenderer{
-  constructor(){this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});this.renderer.setPixelRatio(1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.setClearColor(0,0);this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-    this.scene=new THREE.Scene();this.sun=new THREE.DirectionalLight(0xffffff,3);this.sun.position.set(-3,5,4);this.sun.shadow.mapSize.set(1024,1024);Object.assign(this.sun.shadow.camera,{left:-3,right:3,top:3,bottom:-3,near:.1,far:20});this.sun.shadow.bias=-.0005;this.fill=new THREE.DirectionalLight(0x666666,2);this.fill.position.set(4,2,-3);this.ambient=new THREE.AmbientLight(0x808080,2);this.scene.add(this.sun,this.fill,this.ambient);this.work=document.createElement('canvas');this.silhouette=document.createElement('canvas');
+  constructor(){this.renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});this.renderer.setPixelRatio(1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.setClearColor(0,0);this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    this.scene=new THREE.Scene();this.sun=new THREE.DirectionalLight(0xffffff,1.5);this.sun.shadow.mapSize.set(1024,1024);Object.assign(this.sun.shadow.camera,{left:-3,right:3,top:3,bottom:-3,near:.1,far:20});this.sun.shadow.bias=-.0005;this.fill=new THREE.DirectionalLight(0xffffff,.65);this.ambient=new THREE.AmbientLight(0xffffff,2);this.sky=new THREE.HemisphereLight(0xffffff,0xd2d2d2,.65);this.scene.add(this.sun,this.fill,this.ambient,this.sky);this.work=document.createElement('canvas');this.silhouette=document.createElement('canvas');
   }
   render(model,s,canvas){
-    const n=s.resolution;this.renderer.setSize(n,n,false);this.renderer.toneMappingExposure=s.exposure;this.renderer.shadowMap.enabled=s.castShadows;this.sun.castShadow=s.castShadows;
-    this.sun.color.set(s.sunColor);this.sun.intensity=s.sunIntensity/6;this.fill.color.set(s.secondaryColor);this.fill.intensity=s.secondaryIntensity/12;this.ambient.color.set(s.ambientColor);this.ambient.intensity=s.ambientIntensity/7;
-    for(const info of model.materials){const p=materialPolicy(info.original,s,info.override);const mat=info.material;const changed=mat.transparent!==p.transparent||mat.side!==(s.doubleSide?THREE.DoubleSide:THREE.FrontSide);mat.opacity=p.opacity;mat.transparent=p.transparent;mat.depthWrite=p.depthWrite;mat.alphaTest=p.alphaTest;mat.side=s.doubleSide?THREE.DoubleSide:THREE.FrontSide;mat.roughness=s.roughness;mat.bumpMap=info.original.bumpMap||(s.highContrast?mat.map:null);mat.bumpScale=s.highContrast?s.bumpStrength*.025:0;mat.polygonOffset=p.decal;mat.polygonOffsetFactor=p.decal?-1:0;mat.polygonOffsetUnits=p.decal?-1:0;if(changed||info.lastBump!==!!mat.bumpMap){mat.needsUpdate=true;info.lastBump=!!mat.bumpMap;}}
+    const n=s.resolution;this.renderer.setSize(n,n,false);const lighting=configureLighting(this,s);this.renderer.toneMapping=lighting.toneMapping;this.renderer.toneMappingExposure=lighting.exposure;this.renderer.shadowMap.enabled=s.castShadows;this.sun.castShadow=s.castShadows;
+    for(const info of model.materials){const p=materialPolicy(info.original,s,info.override);const mat=info.material;const changed=mat.transparent!==p.transparent||mat.side!==(s.doubleSide?THREE.DoubleSide:THREE.FrontSide);mat.opacity=p.opacity;mat.transparent=p.transparent;mat.depthWrite=p.depthWrite;mat.alphaTest=p.alphaTest;mat.side=s.doubleSide?THREE.DoubleSide:THREE.FrontSide;mat.roughness=s.roughness;mat.bumpMap=info.original.bumpMap||(s.highContrast?mat.map:null);mat.bumpScale=mat.bumpMap?s.bumpStrength*.025:0;mat.polygonOffset=p.decal;mat.polygonOffsetFactor=p.decal?-1:0;mat.polygonOffsetUnits=p.decal?-1:0;if(changed||info.lastBump!==!!mat.bumpMap){mat.needsUpdate=true;info.lastBump=!!mat.bumpMap;}}
     model.group.traverse(node=>{if(!node.isMesh)return;const materials=Array.isArray(node.material)?node.material:[node.material];node.visible=materials.some(m=>m.opacity>0);node.castShadow=s.castShadows&&materials.every(m=>m.opacity>0);});
     const margin=.78;const fit=Math.sqrt(3)/(Math.sin(THREE.MathUtils.degToRad(s.fov/2))*margin);const distance=fit*1.5/s.zoom;
     let camera;

@@ -12,6 +12,8 @@ An independent, browser-local Roblox OBJ icon generator. JavaScript + Three.js, 
 
 The built-in sample deliberately has two outer decal planes whose imported opacity is zero. Toggle decal preservation to compare. Auto mode only promotes zero-opacity textured materials; partially transparent glass retains its original opacity. A website cannot recreate decal geometry or textures omitted by Studio's OBJ export. Supply all companion files; missing/ambiguous textures are reported visibly.
 
+**Studio lighting** is enabled by default. It uses neutral color mapping, balanced ambient/sky fill, and camera-relative lights so rotating a model does not turn its visible faces dark. **Match Studio lighting** restores this preset while preserving your camera, outline and drop-shadow choices. Model self-shadows and texture-derived bump are off by default, matching the flat SmoothPlastic/decal appearance more closely. The 2D outline and drop shadow remain independent. OBJ files do not contain Roblox's full scene lighting, so this is a Studio-style approximation rather than an engine-identical renderer. Disable Studio lighting to use the original filmic lighting controls.
+
 ## Features
 
 64/128/256/512/1024 resolutions; yaw, elevation, roll, zoom, FOV and orthographic camera; sun/fill/ambient colors and intensities; exposure and self shadows; transparency, roughness, texture-derived bump and bump strength; saturation, outline color/size, drop-shadow opacity/blur/offset; PNG and ZIP downloads; reset, remembered settings, JSON settings import/export. Subdivision is intentionally excluded.
